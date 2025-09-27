@@ -1,0 +1,57 @@
+# Task 2
+# Reference for "docke-in-jenkins-in-docker.pdf"
+
+
+# Defined Named volumes for data persistence.
+volumes:
+  jenkins-data:              # Named volume for jenlins home data
+  dind-certs-ca:             # For persistent DinD CA certificates 
+  dind-certs-client:         # For persistent DinD client certificates 
+  dind-cache:                # For Docker layer cache
+
+# Defined a private network for two containers communication.
+networks:
+  jenkins:
+
+services:
+  # DinD service: remote docker host.
+  dind:
+    image: docker:dind                
+    container_name: dind
+    privileged: true                  # DinD needs privileged mode to run dockerd
+    user: root
+    restart: unless-stopped                        
+    networks:
+      jenkins:
+        aliases:
+          - docker                    # Alias allows jenkins to reach DinD contain via TCP
+    environment:
+      DOCKER_TLS_CERTDIR: /certs      # Enable TLS authentication; DinD generatces CA and client certs here
+    volumes:
+      - dind-certs-ca:/certs/ca       # Store CA certs 
+      - dind-certs-client:/certs/client  # Store client certs used by Jenkins
+      - dind-cache:/var/lib/docker    # persist image layers and build cache
+
+  # Jenkins service
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17  # Jenkins server runs in the container
+    container_name: jenkins
+    restart: unless-stopped
+    user: root                        
+    depends_on:
+      - dind                          # Start the DinD container first
+    networks:
+      - jenkins
+    environment:
+      # Core DinD connection: Jenkins talks to the Docker daemon in the DinD container via TCP/TLS.
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_CERT_PATH: /certs/client
+      DOCKER_TLS_VERIFY: "1"
+    volumes:
+      - jenkins-data:/var/jenkins_home    # Named volume to persist Jenkins data
+      - dind-certs-client:/certs/client:ro # Mount client certs read-only for Jenkins
+    ports:
+      - "8080:8080"                   # Jenkins UI access.
+      - "50000:50000"                 # JNLP agent port for scaling
+
+
