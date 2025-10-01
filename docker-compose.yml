@@ -1,5 +1,5 @@
 # Task 2
-# Reference for "docke-in-jenkins-in-docker.pdf"
+# Reference for "docke-in-jenkins-in-docker.pdfc"
 
 
 # Defined Named volumes for data persistence.
@@ -31,6 +31,7 @@ services:
       - dind-certs-ca:/certs/ca       # Store CA certs 
       - dind-certs-client:/certs/client  # Store client certs used by Jenkins
       - dind-cache:/var/lib/docker    # persist image layers and build cache
+      - jenkins-data:/var/jenkins_home
 
   # Jenkins service
   jenkins:
